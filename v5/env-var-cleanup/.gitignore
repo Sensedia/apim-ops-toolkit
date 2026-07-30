@@ -9,6 +9,10 @@ candidatos_*.csv
 # dump completo de ambientes reais, incluindo valores de variaveis).
 backup/
 
+# CSV gerado por testing/create_test_variables.py (dados de teste descartaveis,
+# mas especificos da sua execucao -- nao faz sentido versionar).
+testing/test_candidates.csv
+
 # Python
 __pycache__/
 *.pyc

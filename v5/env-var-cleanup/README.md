@@ -200,7 +200,38 @@ para gerar um relatório atualizado de uso e duplicidade.
   acima), mas a segurança final depende das credenciais usadas terem
   visibilidade real sobre valores `SECURED`.
 
-## 10. Solução de problemas
+## 10. Testando sem depender de dados reais do tenant
+
+`testing/create_test_variables.py` cria variáveis de ambiente **descartáveis**
+num ambiente real do seu tenant, para você validar o `sanitize_variables.py`
+ponta a ponta antes de rodá-lo contra candidatas de verdade. Ele reaproveita o
+mesmo `.env`/autenticação deste script e usa o mesmo mecanismo de
+read-modify-write (`GET` → altera só o grupo de teste → `PUT`), então exercita
+exatamente o mesmo caminho de risco, na direção inversa.
+
+```bash
+# descobre os environmentIds visíveis para esta credencial
+python3 testing/create_test_variables.py --list-environments
+
+# cria 5 variáveis de teste no ambiente 10 e gera um CSV no formato aceito
+# pelo sanitize_variables.py
+python3 testing/create_test_variables.py --environment-id 10
+
+# valide o Script principal contra o CSV gerado
+python3 sanitize_variables.py --input testing/test_candidates.csv --dry-run
+python3 sanitize_variables.py --input testing/test_candidates.csv
+
+# depois de validar, remova o grupo de teste inteiro
+python3 testing/create_test_variables.py --environment-id 10 --cleanup --map-name sanitize-test-XXXXXX
+```
+
+Se algum `environmentId` do seu tenant for produção conhecida, informe-o em
+`--known-production-env-ids` (ex: `--known-production-env-ids 6,14`) para
+exigir uma confirmação extra antes de criar variáveis de teste nele. Por
+padrão nenhum ambiente é tratado como produção — a checagem é totalmente
+opt-in e local ao seu uso.
+
+## 11. Solução de problemas
 
 ### `HTTP 500` / `CommunicationException` / "There was an error communicating with Access Control service"
 
