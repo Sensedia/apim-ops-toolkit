@@ -50,4 +50,4 @@ primeiro.
 
 ## Licença
 
-TODO — pendente definição.
+[MIT](LICENSE)
