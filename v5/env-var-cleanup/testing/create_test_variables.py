@@ -281,11 +281,17 @@ def main():
     )
     parser.add_argument("--yes", action="store_true", help="pula as confirmacoes interativas")
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument(
+        "--insecure", action="store_true",
+        help="desativa a validacao de certificado TLS (verify=False) em todas as chamadas "
+             "HTTPS. Use so como ultimo recurso -- ver README.md, secao de solucao de "
+             "problemas.",
+    )
     args = parser.parse_args()
 
     cfg = sv.load_config(args.env_file)
     try:
-        client = sv.ApiClient(cfg, verbose=args.verbose)
+        client = sv.ApiClient(cfg, verbose=args.verbose, insecure=args.insecure)
     except sv.AuthError as e:
         raise SystemExit(str(e))
 

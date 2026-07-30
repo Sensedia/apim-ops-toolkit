@@ -130,10 +130,22 @@ class ApiClient:
     ver README.md secao 2). Renova o token automaticamente perto
     do vencimento ou se uma chamada devolver 401."""
 
-    def __init__(self, cfg, verbose=False):
+    def __init__(self, cfg, verbose=False, insecure=False):
         self.cfg = cfg
         self.base_url = cfg["BASE_URL"].rstrip("/")
         self.verbose = verbose
+        self.verify = not insecure
+        if insecure:
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            print(
+                "AVISO: --insecure ativo -- validacao de certificado TLS DESLIGADA para "
+                "todas as chamadas HTTPS deste script, incluindo o token OAuth2 e o "
+                "CLIENT_SECRET. So use isso se souber exatamente por que precisa (ex: "
+                "proxy corporativo com TLS interception cuja CA voce nao pode configurar "
+                "de outra forma). Prefira sempre REQUESTS_CA_BUNDLE (ver README.md, secao "
+                "de solucao de problemas) -- isso mantem a validacao de certificado ligada."
+            )
         self._token = None
         self._token_expires_at = 0
         self._refresh_token()
@@ -145,7 +157,7 @@ class ApiClient:
         try:
             resp = requests.post(
                 self.cfg["TOKEN_URL"], json=payload, auth=auth, timeout=REQUEST_TIMEOUT,
-                headers={"Content-Type": "application/json"},
+                headers={"Content-Type": "application/json"}, verify=self.verify,
             )
         except requests.exceptions.RequestException as e:
             raise AuthError(f"Falha de rede ao gerar o token em TOKEN_URL: {e}")
@@ -206,7 +218,7 @@ class ApiClient:
         while True:
             resp = requests.request(
                 method, f"{self.base_url}{path}", headers=self._headers(),
-                timeout=REQUEST_TIMEOUT, **kwargs,
+                timeout=REQUEST_TIMEOUT, verify=self.verify, **kwargs,
             )
             if self.verbose:
                 print(f"[verbose] {method} {path} -> {resp.status_code}")
@@ -432,6 +444,13 @@ def main():
     parser.add_argument("--retry-errors", action="store_true", help="reprocessa linhas com status error/delete_not_confirmed/secured_value_masked_abort/key_mismatch_error")
     parser.add_argument("--sleep-ms", type=int, default=250, help="pausa entre variaveis, em milissegundos (padrao: 250)")
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument(
+        "--insecure", action="store_true",
+        help="desativa a validacao de certificado TLS (verify=False) em todas as chamadas "
+             "HTTPS. Use so como ultimo recurso (ex: proxy corporativo com TLS interception "
+             "cuja CA voce nao consegue configurar via REQUESTS_CA_BUNDLE) -- ver README.md, "
+             "secao de solucao de problemas.",
+    )
     args = parser.parse_args()
 
     cfg = load_config(args.env_file)
@@ -469,7 +488,7 @@ def main():
         return
 
     try:
-        client = ApiClient(cfg, verbose=args.verbose)
+        client = ApiClient(cfg, verbose=args.verbose, insecure=args.insecure)
     except AuthError as e:
         raise SystemExit(str(e))
 

@@ -129,10 +129,22 @@ class ApiClient:
     /user-management/v1/oauth2/token -- ver README.md secao 2). Renova o
     token automaticamente perto do vencimento ou se uma chamada devolver 401."""
 
-    def __init__(self, cfg, verbose=False):
+    def __init__(self, cfg, verbose=False, insecure=False):
         self.cfg = cfg
         self.base_url = cfg["BASE_URL"].rstrip("/")
         self.verbose = verbose
+        self.verify = not insecure
+        if insecure:
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            print(
+                "AVISO: --insecure ativo -- validacao de certificado TLS DESLIGADA para "
+                "todas as chamadas HTTPS deste script, incluindo o token OAuth2 e o "
+                "CLIENT_SECRET. So use isso se souber exatamente por que precisa (ex: "
+                "proxy corporativo com TLS interception cuja CA voce nao pode configurar "
+                "de outra forma). Prefira sempre REQUESTS_CA_BUNDLE (ver README.md, secao "
+                "de solucao de problemas) -- isso mantem a validacao de certificado ligada."
+            )
         self._token = None
         self._token_expires_at = 0
         self._refresh_token()
@@ -144,7 +156,7 @@ class ApiClient:
         try:
             resp = requests.post(
                 self.cfg["TOKEN_URL"], json=payload, auth=auth, timeout=REQUEST_TIMEOUT,
-                headers={"Content-Type": "application/json"},
+                headers={"Content-Type": "application/json"}, verify=self.verify,
             )
         except requests.exceptions.RequestException as e:
             raise AuthError(f"Falha de rede ao gerar o token em TOKEN_URL: {e}")
@@ -202,7 +214,7 @@ class ApiClient:
         while True:
             resp = requests.get(
                 f"{self.base_url}{path}", headers=self._headers(), params=params,
-                timeout=REQUEST_TIMEOUT,
+                timeout=REQUEST_TIMEOUT, verify=self.verify,
             )
             if self.verbose:
                 print(f"[verbose] GET {path} params={params} -> {resp.status_code}")
@@ -656,6 +668,13 @@ def main():
     )
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
+        "--insecure", action="store_true",
+        help="desativa a validacao de certificado TLS (verify=False) em todas as chamadas "
+             "HTTPS. Use so como ultimo recurso (ex: proxy corporativo com TLS interception "
+             "cuja CA voce nao consegue configurar via REQUESTS_CA_BUNDLE) -- ver README.md, "
+             "secao de solucao de problemas.",
+    )
+    parser.add_argument(
         "--probe", action="store_true",
         help="so testa a conectividade com os endpoints principais (uma chamada cada) e sai -- "
              "nao roda a identificacao completa. Util para diagnosticar erros HTTP antes de "
@@ -676,7 +695,7 @@ def main():
     wanted_env_ids = parse_environment_ids(args.environment_ids)
 
     try:
-        client = ApiClient(cfg, verbose=args.verbose)
+        client = ApiClient(cfg, verbose=args.verbose, insecure=args.insecure)
     except AuthError as e:
         raise SystemExit(str(e))
 

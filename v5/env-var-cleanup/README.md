@@ -233,6 +233,37 @@ opt-in e local ao seu uso.
 
 ## 11. Solução de problemas
 
+### Erro de certificado TLS (`SSLError`, `CERTIFICATE_VERIFY_FAILED`) atrás de proxy corporativo
+
+Se sua rede passa o tráfego HTTPS por um proxy corporativo que faz TLS
+interception (reemite os certificados com uma CA própria), o `requests` vai
+rejeitar essa CA por não reconhecê-la, mesmo que o tráfego em si seja
+legítimo.
+
+**Solução recomendada:** aponte o `requests` para o certificado da CA do seu
+proxy via a variável de ambiente `REQUESTS_CA_BUNDLE` (lida automaticamente
+pela biblioteca, sem precisar de nenhuma mudança no script):
+
+```bash
+export REQUESTS_CA_BUNDLE=/caminho/para/ca-do-proxy-corporativo.pem
+python3 sanitize_variables.py --input confirmado_seguro_deletar.csv --dry-run
+```
+
+Peça esse arquivo `.pem` ao time de infraestrutura/segurança da sua empresa
+(geralmente é a mesma CA que o navegador já confia nesse ambiente). Isso vale
+também para `testing/create_test_variables.py`.
+
+**Último recurso:** a flag `--insecure` (disponível em `sanitize_variables.py`
+e em `testing/create_test_variables.py`) desativa completamente a validação
+de certificado TLS. Isso expõe o token OAuth2 e o `CLIENT_SECRET` a qualquer
+interceptação de tráfego, não só a do proxy corporativo esperado — use
+apenas se `REQUESTS_CA_BUNDLE` genuinamente não for uma opção, e nunca em
+ambientes onde a rede não é totalmente confiável:
+
+```bash
+python3 sanitize_variables.py --input confirmado_seguro_deletar.csv --dry-run --insecure
+```
+
 ### `HTTP 500` / `CommunicationException` / "There was an error communicating with Access Control service"
 
 Se o token OAuth2 foi gerado normalmente (você vê a mensagem `token OAuth2
