@@ -1,0 +1,12 @@
+# Credenciais reais -- nunca commitar. Use .env.example como modelo.
+.env
+
+# Saida gerada pelo script (relatorios reais de um tenant real).
+output/
+
+# Python
+__pycache__/
+*.pyc
+
+# Artefatos de harness/IDE que nao fazem parte do projeto.
+.claude/

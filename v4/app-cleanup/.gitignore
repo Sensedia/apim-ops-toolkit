@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+appsToDelete.txt
+appsToDelete_*.txt
+!appsToDelete.example.txt
+__pycache__/
+backup/
+output/
+debug/
+testing/
+.claude/

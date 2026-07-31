@@ -1,0 +1,21 @@
+# Credenciais reais -- nunca commitar. Use .env.example como modelo.
+.env
+
+# CSVs de candidatos reais gerados/usados localmente contra um tenant real.
+candidatos_*.csv
+!exemplo_input.csv
+
+# Backups/relatorios gerados pelo script contra um tenant real (contem
+# dump completo de ambientes reais, incluindo valores de variaveis).
+backup/
+
+# CSV gerado por testing/create_test_variables.py (dados de teste descartaveis,
+# mas especificos da sua execucao -- nao faz sentido versionar).
+testing/test_candidates.csv
+
+# Python
+__pycache__/
+*.pyc
+
+# Artefatos de harness/IDE que nao fazem parte do projeto.
+.claude/

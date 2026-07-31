@@ -1,0 +1,4 @@
+environmentId,environmentName,mapId,mapName,variableId,variableKey,classification
+6,[Interno] API Prod (sem /Prd),201,integracoes-legado,10001,api-exemplo.legado,nao_usada
+6,[Interno] API Prod (sem /Prd),201,integracoes-legado,10002,api-exemplo.duplicada,nao_usada
+14,[Externo] API Production,340,hosts-externos,20005,api-parceiro-descontinuado,nao_usada
