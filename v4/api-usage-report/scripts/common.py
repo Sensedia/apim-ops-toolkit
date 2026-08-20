@@ -1,13 +1,10 @@
 """Shared helpers for the APIM v4 low-usage report scripts."""
 import os
-import re
 
 import requests
 
 API_BASE_PATH = "/api-manager/api/v3"  # fixo entre ambientes (vem do swagger)
 REQUEST_TIMEOUT = 120
-
-_REDACT_KEY_RE = re.compile(r"secret|password|clientsecret", re.IGNORECASE)
 
 
 def load_dotenv(path=".env"):
@@ -169,25 +166,7 @@ class ApiClient:
     def get(self, path, params=None, **kwargs):
         return self._request("GET", path, params=params, **kwargs)
 
-    def post(self, path, json=None, **kwargs):
-        return self._request("POST", path, json=json, **kwargs)
-
     def post_analytics(self, path, json=None, **kwargs):
         """POST contra a Sensedia Analytics API (mesmo host, base path
         /analytics) -- ver self.analytics_base_url."""
         return self._request("POST", path, base_url=self.analytics_base_url, json=json, **kwargs)
-
-
-def redact(obj):
-    """Recursively mask values of keys that look like secrets, for safe local dumps."""
-    if isinstance(obj, dict):
-        out = {}
-        for k, v in obj.items():
-            if _REDACT_KEY_RE.search(str(k)):
-                out[k] = "***REDACTED***"
-            else:
-                out[k] = redact(v)
-        return out
-    if isinstance(obj, list):
-        return [redact(v) for v in obj]
-    return obj

@@ -188,7 +188,11 @@ def build_inventory(client, apis, cache_file, refresh, sleep_ms, concurrency, ve
     def task(api):
         if sleep_ms:
             time.sleep(sleep_ms / 1000)
-        return fetch_api_detail(client, api.get("id"))
+        api_id = api.get("id")
+        try:
+            return fetch_api_detail(client, api_id)
+        except Exception as e:  # noqa: BLE001 -- falha de rede em 1 API não pode derrubar o lote inteiro
+            return None, f"GET /apis/{api_id} falhou: {e}"
 
     done = 0
     with ThreadPoolExecutor(max_workers=concurrency) as executor:
