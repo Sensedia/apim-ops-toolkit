@@ -9,7 +9,8 @@ time de Platform Engineering da Sensedia.
 ```
 apim-ops-toolkit/
 ├── v4/
-│   └── app-cleanup/                # Remove APPs (client credentials) obsoletas via Manager API
+│   ├── app-cleanup/                # Remove APPs (client credentials) obsoletas via Manager API
+│   └── api-usage-report/           # Relatório (somente leitura) de APIs com pouco ou nenhum uso
 └── v5/
     ├── env-var-identification/     # Identifica variáveis de ambiente sem uso (somente leitura)
     └── env-var-cleanup/            # Exclui com segurança as variáveis confirmadas como seguras
@@ -39,6 +40,14 @@ credenciais, configuração do `.env`, como interpretar os relatórios gerados).
 Ferramenta independente para remover APPs (client credentials) obsoletas de
 um ambiente APIM v4 via Manager API, com backup do payload completo antes de
 cada exclusão. Veja `v4/app-cleanup/README.md`.
+
+## `api-usage-report` (APIM v4)
+
+Ferramenta **somente leitura** — gera um CSV com a contagem de chamadas
+(janelas de 7/30/90 dias) por API e ambiente, cruzando o inventário da
+Manager API com uma query de agregação na Sensedia Analytics API. Útil para
+identificar APIs candidatas a depreciação por baixo ou nenhum uso. Veja
+`v4/api-usage-report/README.md`.
 
 ## Aviso
 
