@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+appsToRotate.txt
+appsToRotate_*.txt
+!appsToRotate.example.txt
+__pycache__/
+backup/
+output/
+*.gpg
