@@ -61,6 +61,22 @@ def get_origin(env_path=".env"):
     return origin
 
 
+_REDACT_BODY_RE = re.compile(
+    r'("(?:secret|clientSecret|code|accessToken|access_token|refreshToken|refresh_token|password)"\s*:\s*")[^"]*(")',
+    re.IGNORECASE,
+)
+
+
+def _redact_text(text):
+    """Mascara secrets e códigos de token em corpos JSON antes de imprimir no --verbose."""
+    return _REDACT_BODY_RE.sub(r"\1***REDACTED***\2", text or "")
+
+
+def _redact_url(url):
+    """O código do token aparece no path de /access-tokens/{code} e no ?code=."""
+    return re.sub(r"(/access-tokens/|[?&]code=)[^/?&]+", r"\1***REDACTED***", url or "")
+
+
 def _redact_headers(headers):
     out = dict(headers)
     for k in out:
@@ -93,11 +109,11 @@ class ApiClient:
     def _log_response(self, resp):
         if not self.verbose:
             return
-        print(f"[verbose] -> {resp.request.method} {resp.request.url}")
+        print(f"[verbose] -> {resp.request.method} {_redact_url(resp.request.url)}")
         print(f"[verbose]    request headers: {_redact_headers(resp.request.headers)}")
         print(f"[verbose]    status: {resp.status_code}")
         print(f"[verbose]    response headers: {dict(resp.headers)}")
-        print(f"[verbose]    body (primeiros 500 chars): {resp.text[:500]!r}")
+        print(f"[verbose]    body (primeiros 500 chars, redigido): {_redact_text(resp.text)[:500]!r}")
 
     # endpoints candidatos pra obter o XSRF-TOKEN sem exigir ele mesmo (varia
     # por ambiente/versão do Manager — ex: /login/swagger-editor não existe

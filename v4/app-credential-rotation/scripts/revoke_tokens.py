@@ -29,7 +29,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(__file__))
 from common import ApiClient  # noqa: E402
-from ops import append_csv, append_jsonl, dirs, load_client_ids, load_report, now  # noqa: E402
+from ops import append_csv, append_jsonl, confirm_batch, dirs, load_client_ids, load_report, now, paginate  # noqa: E402
 
 REPORT_FIELDS = ["token_sha256", "clientId", "app_id", "app_name", "owner", "created", "status", "http_status",
                  "operator", "timestamp", "error"]
@@ -44,21 +44,17 @@ def find_app(client, cid):
     resp = client.get("/apps", params={"clientId": cid})
     if resp.status_code != 200:
         return None
-    apps = [x for x in resp.json() if (x.get("clientId") or x.get("code")) == cid] or resp.json()
+    apps = [x for x in resp.json() if (x.get("clientId") or x.get("code")) == cid]  # só exato
     return apps[0] if len(apps) == 1 else None
 
 
 def list_tokens(client, app_id, page_size=200):
-    tokens, skip = [], 0
-    while True:
-        resp = client.get("/access-tokens", params={"appIds": app_id, "status": "ACTIVE", "skip": skip, "limit": page_size})
+    def fetch(_page, offset):
+        resp = client.get("/access-tokens", params={"appIds": app_id, "status": "ACTIVE", "skip": offset, "limit": page_size})
         if resp.status_code != 200:
             raise RuntimeError(f"GET /access-tokens falhou ({resp.status_code}): {resp.text[:200]}")
-        batch = resp.json()
-        tokens.extend(batch)
-        if len(batch) < page_size:
-            return tokens
-        skip += page_size
+        return resp.json()
+    return paginate(fetch, key=lambda t: t.get("code"))
 
 
 def created_ms(tok):
@@ -72,10 +68,11 @@ def created_ms(tok):
 
 
 def token_status(client, code):
+    """Status atual do token (None se a consulta falhar ou não achar o token exato)."""
     resp = client.get("/access-tokens", params={"code": code})
     if resp.status_code != 200:
         return None
-    rows = [r for r in resp.json() if r.get("code") == code] or resp.json()
+    rows = [r for r in resp.json() if r.get("code") == code]
     return rows[0].get("status") if rows else None
 
 
@@ -89,7 +86,8 @@ def main():
     p.add_argument("--limit", type=int, default=None, help="limite de apps nesta execução")
     p.add_argument("--only", default=None)
     p.add_argument("--retry-errors", action="store_true")
-    p.add_argument("--verbose", action="store_true")
+    p.add_argument("--yes", action="store_true", help="não pede confirmação antes de revogar em lote")
+    p.add_argument("--verbose", action="store_true", help="loga request/response (secrets e códigos mascarados)")
     a = p.parse_args()
 
     after_ms = None
@@ -109,6 +107,9 @@ def main():
     print(f"operador: {operator} | apps: {len(ids)} | created-after: {a.created_after or '-'}"
           + (" | DRY-RUN" if a.dry_run else ""))
 
+    if not a.dry_run:
+        confirm_batch("a revogação dos tokens ativos das APPs", len(ids), a.yes)
+
     counts = {}
     for n, cid in enumerate(ids, 1):
         app = find_app(client, cid)
@@ -123,7 +124,11 @@ def main():
             counts["list_error"] = counts.get("list_error", 0) + 1
             continue
         if after_ms:
-            tokens = [t for t in tokens if (created_ms(t) or 0) >= after_ms]
+            # token sem data legível fica DENTRO do escopo: é melhor revogar a mais do que deixar escapar
+            unknown = [t for t in tokens if created_ms(t) is None]
+            tokens = [t for t in tokens if created_ms(t) is None or created_ms(t) >= after_ms]
+            if unknown:
+                print(f"    {len(unknown)} token(s) sem data de criação legível incluídos no escopo")
         print(f"[{n}/{len(ids)}] {cid} {app.get('name', '')}: {len(tokens)} token(s) ativo(s) no escopo")
         for t in tokens:
             code = t.get("code") or ""
@@ -148,10 +153,16 @@ def main():
                 body["status"] = "REVOKED"
                 resp = client.put(f"/access-tokens/{code}", json=body)
                 row["http_status"] = resp.status_code
-                if resp.status_code == 200 and token_status(client, code) not in ("ACTIVE",):
-                    row["status"] = "revoked"
-                else:
+                if resp.status_code != 200:
                     row.update({"status": "error", "error": resp.text[:250]})
+                else:
+                    st = token_status(client, code)
+                    if st and st != "ACTIVE":
+                        row["status"] = "revoked"
+                    else:
+                        # não conta como revogado sem confirmação: reexecute com --retry-errors
+                        row.update({"status": "revoke_not_confirmed",
+                                    "error": f"PUT 200, mas a reconsulta devolveu status={st!r}"})
             append_csv(report_file, REPORT_FIELDS, row)
             counts[row["status"]] = counts.get(row["status"], 0) + 1
             print(f"    {mask(code)} owner={t.get('owner', '')} -> {row['status']}"

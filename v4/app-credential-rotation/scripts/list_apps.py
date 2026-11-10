@@ -18,6 +18,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 from common import ApiClient  # noqa: E402
+from ops import paginate  # noqa: E402
 
 
 def main():
@@ -33,16 +34,13 @@ def main():
     who = client.whoami()
     print(f"operador: {who['login']} (id {who['id']})")
 
-    apps, page = [], 1
-    while True:
-        resp = client.get("/apps", params={"actualPage": page, "pageSize": a.page_size, "details": "false"})
+    def fetch(page, _offset):
+        resp = client.get("/apps", params={"actualPage": page + 1, "pageSize": a.page_size, "details": "false"})
         if resp.status_code != 200:
             raise SystemExit(f"GET /apps falhou ({resp.status_code}): {resp.text[:300]}")
-        batch = resp.json()
-        apps.extend(batch)
-        if len(batch) < a.page_size:
-            break
-        page += 1
+        return resp.json()
+
+    apps = paginate(fetch, key=lambda x: x.get("id"))
 
     seen, rows, internal = set(), [], []
     for ap in apps:

@@ -21,18 +21,29 @@ Manager com esse usuário, e também no relatório local de cada execução.
 - **Troca de credenciais (`recreate`).** O API Manager v4 não troca o secret de uma APP
   existente, então o script recria a APP:
   1. guarda o payload completo da APP (APIs, planos, developer, extraInfo) no backup;
-  2. renomeia a APP atual para `<nome> [substituído AAAA-MM-DD]` e muda o status para
+  2. renomeia a APP atual para `<nome> [substituído AAAA-MM-DD <8 primeiros do client_id>]` e muda o status para
      `CANCELLED` (o nome de APP é único; a antiga fica guardada para consulta);
   3. cria a APP nova com o nome original e a mesma configuração: o API Manager gera
      client_id e secret novos;
   4. grava as credenciais novas em `output/<tag>/new_credentials.csv`;
   5. confere que a APP nova tem os mesmos planos e que a antiga ficou `CANCELLED`.
 
-  Se a criação falhar, a APP antiga volta ao nome e status originais. **O client_id muda
-  junto com o secret**: os consumidores precisam atualizar os dois.
-- **Revogação.** Lista os tokens ativos de cada APP do arquivo de entrada e revoga um a
-  um. Funciona também para a APP antiga depois do `recreate` (o client_id dela continua
-  o mesmo).
+  Se a criação falhar, a APP antiga volta ao nome e status originais; se a criação
+  estourar o tempo, o script procura a APP nova pelo nome antes de decidir. **O client_id
+  muda junto com o secret**: os consumidores precisam atualizar os dois.
+
+  APPs que já estavam `CANCELLED` antes do script ficam de fora (`skipped_cancelled`),
+  para não reativar o que alguém cancelou de propósito; `--include-cancelled` inclui.
+- **Revogação.** Lista os tokens ativos de cada APP do arquivo de entrada (lendo todas as
+  páginas) e revoga um a um. Só conta como revogado o token que a reconsulta mostra fora
+  de `ACTIVE`; se a confirmação falhar, a linha fica `revoke_not_confirmed` para
+  reexecutar com `--retry-errors`. Com `--created-after`, tokens sem data de criação
+  legível ficam dentro do escopo. Funciona também para a APP antiga depois do `recreate`
+  (o client_id dela continua o mesmo).
+- **Segurança da execução.** Os scripts só processam a APP cujo client_id bate
+  exatamente com o do arquivo. Fora do `--dry-run`, pedem confirmação antes de alterar
+  mais de um item (`--yes` pula a pergunta). O `--verbose` mascara secrets e códigos de
+  token.
 
 ## Pré-requisitos
 
@@ -77,15 +88,16 @@ python3 scripts/revoke_tokens.py --input appsToRotate.txt --env-file .env
 ```
 
 Todos os scripts que alteram dados aceitam `--dry-run`, `--limit`, `--only <clientId>`,
-`--retry-errors` e `--verbose`, e podem ser reexecutados: pulam o que já foi concluído.
+`--retry-errors`, `--yes` e `--verbose`, e podem ser reexecutados: pulam o que já foi
+concluído.
 
 ## Saída
 
 Em `backup/<tag-do-env-file>/`:
 - `report.csv` e `report_tokens.csv`: resultado de cada item, com o usuário que operou e
   o horário
-- `apps_backup.jsonl`: payload completo de cada APP antes da mudança (**contém o secret
-  antigo**)
+- `apps_backup.jsonl`: payload de cada APP antes da mudança, sem o secret (só o sha256).
+  O `--dry-run` não grava backup.
 - `tokens_backup.jsonl`: dados dos tokens revogados (código mascarado + sha256)
 
 Em `output/<tag-do-env-file>/`:
@@ -97,11 +109,11 @@ Em `output/<tag-do-env-file>/`:
 
 - **As integrações param** quando a APP é bloqueada ou recriada, até o consumidor
   receber e configurar as credenciais novas. Combine a janela com cada consumidor.
-- A APP antiga fica `CANCELLED` com o sufixo `[substituído AAAA-MM-DD]`; apague pela
+- A APP antiga fica `CANCELLED` com o sufixo `[substituído AAAA-MM-DD …]`; apague pela
   interface quando não precisar mais dela.
 - APPs com a mesma credencial configurada em vários lugares (por exemplo, em
   interceptors que comparam o client_id) precisam ser ajustadas depois da troca.
-- `backup/` e `output/` contêm credenciais: guarde em local seguro e apague quando
-  terminar.
+- `output/new_credentials.csv` tem as credenciais novas em claro (ou cifradas com
+  `--gpg-passphrase-file`): guarde em local seguro e apague quando terminar.
 - As APPs internas da plataforma (ID negativo) não aparecem no inventário e são
   tratadas pela Sensedia.

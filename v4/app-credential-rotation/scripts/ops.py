@@ -71,3 +71,35 @@ def append_jsonl(path, obj):
         f.write(json.dumps(obj, ensure_ascii=False) + "\n")
         f.flush()
         os.fsync(f.fileno())
+
+
+def confirm_batch(action, count, assume_yes):
+    """Pede confirmação antes de alterar mais de um item fora do --dry-run.
+    Sem terminal interativo, exige --yes."""
+    if assume_yes or count <= 1:
+        return
+    import sys
+    if not sys.stdin.isatty():
+        raise SystemExit(f"{action} em {count} itens sem terminal interativo: rode com --yes para confirmar")
+    answer = input(f"Confirma {action} em {count} itens? Digite 'sim' para seguir: ").strip().lower()
+    if answer != "sim":
+        raise SystemExit("cancelado pelo operador; nada foi alterado")
+
+
+def paginate(fetch, key, max_pages=1000):
+    """Lê páginas até vir uma vazia (não para em página menor que o tamanho pedido,
+    porque a API pode limitar o tamanho). Para também se uma página não trouxer item
+    novo, para não entrar em laço quando a API ignora o parâmetro de paginação."""
+    items, seen, page = [], set(), 0
+    while page < max_pages:
+        batch = fetch(page, len(items))
+        if not batch:
+            break
+        new = [x for x in batch if key(x) not in seen]
+        if not new:
+            break
+        for x in new:
+            seen.add(key(x))
+        items.extend(new)
+        page += 1
+    return items
