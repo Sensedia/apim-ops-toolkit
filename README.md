@@ -10,6 +10,7 @@ time de Platform Engineering da Sensedia.
 apim-ops-toolkit/
 ├── v4/
 │   ├── app-cleanup/                # Remove APPs (client credentials) obsoletas via Manager API
+│   ├── app-credential-rotation/    # Bloqueia APPs, revoga tokens e troca client_id/secret via Manager API
 │   └── api-usage-report/           # Relatório (somente leitura) de APIs com pouco ou nenhum uso
 └── v5/
     ├── env-var-identification/     # Identifica variáveis de ambiente sem uso (somente leitura)
@@ -40,6 +41,12 @@ credenciais, configuração do `.env`, como interpretar os relatórios gerados).
 Ferramenta independente para remover APPs (client credentials) obsoletas de
 um ambiente APIM v4 via Manager API, com backup do payload completo antes de
 cada exclusão. Veja `v4/app-cleanup/README.md`.
+
+## `app-credential-rotation` (APIM v4)
+
+Bloqueia APPs, revoga os access tokens já emitidos e troca client_id e secret
+recriando a APP com a mesma configuração, tudo via Manager API (cada operação fica
+no audit do Manager com o usuário do token). Veja `v4/app-credential-rotation/README.md`.
 
 ## `api-usage-report` (APIM v4)
 
